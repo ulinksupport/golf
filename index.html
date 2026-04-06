@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoCaddie | Tour-Level AI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #060913;
+            --panel-bg: rgba(13, 20, 36, 0.65);
+            --panel-border: rgba(30, 41, 59, 0.8);
+            --accent-primary: #10b981; /* Emerald */
+            --accent-glow: rgba(16, 185, 129, 0.3);
+            --accent-secondary: #0ea5e9; /* Sky Blue */
+            --accent-danger: #ef4444; /* Red for aggressive */
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(16, 185, 129, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(14, 165, 233, 0.05) 0%, transparent 40%);
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 460px 1fr;
+            width: 100%;
+            height: 100%;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        /* --- LEFT PANEL --- */
+        .sidebar {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 24px;
+            display: flex;
+            flex-direction: column;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            position: relative;
+            z-index: 10;
+        }
+
+        .header {
+            padding: 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(180deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%);
+        }
+
+        .logo-wrap {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .logo-icon svg { width: 22px; height: 22px; fill: #000; }
+
+        .logo-text {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        
+        .logo-text span {
+            color: var(--accent-primary);
+            font-weight: 400;
+        }
+
+        .chat-container {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            scroll-behavior: smooth;
+        }
+        
+        .chat-container::-webkit-scrollbar { width: 4px; }
+        .chat-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+        .input-area {
+            padding: 20px 24px;
+            background: rgba(0, 0, 0, 0.2);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 12px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .input-wrapper:focus-within {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 1px var(--accent-primary), 0 0 20px rgba(16, 185, 129, 0.15);
+        }
+
+        input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            font-size: 0.95rem;
+            padding: 8px 12px;
+            outline: none;
+        }
+        
+        input::placeholder { color: #64748b; }
+
+        .send-btn {
+            background: var(--accent-primary);
+            color: #000;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.2s;
+        }
+        
+        .send-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+        .send-btn svg { width: 18px; height: 18px; fill: currentColor; }
+
+        .chip {
+            display: inline-block;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: var(--accent-primary);
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 12px;
+        }
+        
+        .chip:hover {
+            background: var(--accent-primary);
+            color: #000;
+        }
+
+        /* Message Bubbles */
+        .message {
+            max-width: 90%;
+            padding: 16px;
+            border-radius: 16px;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        .msg-user {
+            background: #1e293b;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .msg-ai {
+            background: rgba(16, 185, 129, 0.05);
+            border: 1px solid rgba(16, 185, 129, 0.15);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+            max-width: 100%;
+        }
+
+        @keyframes slideUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Structured Report Cards */
+        .report-section {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px dashed rgba(255,255,255,0.1);
+        }
+        
+        .report-title {
+            font-family: 'Outfit', sans-serif;
+            color: var(--accent-primary);
+            font-weight: 700;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .data-block {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-left: 3px solid var(--accent-primary);
+        }
+
+        .data-label { color: var(--text-muted); font-size: 0.8rem; margin-bottom: 4px; }
+        .data-value { font-weight: 600; color: #fff; }
+
+        .split-card {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .card-safe {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 12px;
+            padding: 12px;
+        }
+        
+        .card-aggro {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 12px;
+            padding: 12px;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        
+        .pill-safe { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+        .pill-aggro { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+
+        /* --- RIGHT PANEL --- */
+        .main-view {
+            border-radius: 24px;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.05);
+            background: #000;
+        }
+
+        .telemetry-map {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.7;
+            transform: scale(1.05);
+            transition: all 1s ease-out;
+        }
+
+        .hud-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            z-index: 20;
+        }
+
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .hud-box {
+            background: rgba(6, 9, 19, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 16px;
+            padding: 16px 20px;
+            min-width: 210px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            animation: fadeIn 1s ease forwards;
+            opacity: 0;
+        }
+
+        .hud-box:nth-child(2) { animation-delay: 0.2s; border-color: rgba(14, 165, 233, 0.2); }
+
+        .hud-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+
+        .status-list {
+            list-style: none;
+            font-size: 0.85rem;
+            color: #e2e8f0;
+        }
+        
+        .status-list li {
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-list li::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--accent-primary);
+        }
+
+        .status-list.blue-dots li::before {
+            background: var(--accent-secondary);
+            box-shadow: 0 0 8px var(--accent-secondary);
+        }
+
+        .hud-center-target {
+            position: absolute;
+            top: 45%; left: 55%;
+            transform: translate(-50%, -50%);
+            width: 160px; height: 160px;
+            border: 1px dashed rgba(16, 185, 129, 0.4);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            animation: pulse-ring 4s infinite;
+        }
+        
+        @keyframes pulse-ring {
+            0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.4; }
+            50% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.4; }
+        }
+
+        .target-dot {
+            width: 14px; height: 14px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            box-shadow: 0 0 20px 5px var(--accent-glow);
+        }
+
+        .scan-line {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+            box-shadow: 0 0 15px var(--accent-primary);
+            opacity: 0.5;
+            animation: scan 4s linear infinite;
+        }
+
+        @keyframes scan {
+            0% { top: 0; opacity: 0; }
+            10% { opacity: 0.6; }
+            90% { opacity: 0.6; }
+            100% { top: 100%; opacity: 0; }
+        }
+
+        .typing-dots {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            height: 20px;
+        }
+        
+        .typing-dots span {
+            width: 6px; height: 6px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            animation: dots 1.4s infinite ease-in-out both;
+        }
+        .typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes dots {
+            0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes fadeIn { to { opacity: 1; } }
+
+    </style>
+</head>
+<body>
+
+    <div class="layout">
+        
+        <!-- LEFT PANEL (AI Caddie Interface) -->
+        <div class="sidebar">
+            <div class="header">
+                <div class="logo-wrap">
+                    <div class="logo-icon">
+                        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </div>
+                    <div class="logo-text">GoCaddie<span>.ai</span></div>
+                </div>
+                <div style="font-size:0.75rem; color:#10b981; display:flex; align-items:center; gap:6px; font-weight:600;">
+                    <span style="width:6px; height:6px; background:#10b981; border-radius:50%; box-shadow:0 0 8px #10b981;"></span>
+                    System Live
+                </div>
+            </div>
+
+            <div class="chat-container" id="chat">
+                <div class="message msg-ai">
+                    <div class="report-title">⚙️ SYSTEM READY</div>
+                    I am GoCaddie. I combine real-time telemetry, historical player data, and Tour-level strategy to give you an unfair advantage. 
+                    <br><br>Describe your distance, wind, handicap, and lie to begin your analysis.
+                    <br>
+                    <div class="chip" onclick="triggerDemo()">Test Run: "Par 4, 385 yards..."</div>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <div class="input-wrapper">
+                    <input type="text" id="promptInput" placeholder="E.g., 150y out, 15mph headwind, rough..." onkeypress="if(event.key === 'Enter') sendMsg()">
+                    <button class="send-btn" onclick="sendMsg()">
+                        <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL (Telemetry / 3D Analysis) -->
+        <div class="main-view">
+            <!-- BACKGROUND GENERATED MAP -->
+            <img src="/Users/mac/.gemini/antigravity/brain/4334c328-6950-4413-929b-f4b0af1cb57d/golf_hole_telemetry_1775493382968.png" class="telemetry-map" id="mapBg">
+            
+            <div class="scan-line"></div>
+
+            <div class="hud-overlay" id="hud" style="opacity: 0;">
+                <div class="hud-top">
+                    <!-- PIPELINE STATUS -->
+                    <div class="hud-box">
+                        <div class="hud-title">n8n PIPELINE STATUS</div>
+                        <ul class="status-list">
+                            <li>GPS Position: <span style="color:#10b981">Locked</span></li>
+                            <li>Wind API: <span style="color:#10b981">Live Sycned</span></li>
+                            <li>Player DB: <span style="color:#10b981">Analyzed (47 Rnds)</span></li>
+                            <li>Course Data: <span style="color:#10b981">Hole Loaded</span></li>
+                        </ul>
+                    </div>
+
+                    <!-- ENVIRONMENT DATA -->
+                    <div class="hud-box" style="animation-delay: 0.2s;">
+                        <div class="hud-title">TELEMETRY.API</div>
+                        <ul class="status-list blue-dots">
+                            <li>Wind: 15mph NNE (Headwind)</li>
+                            <li>Effective Dist: +22 yds</li>
+                            <li>Lie: Rough (Flyer Risk)</li>
+                            <li>Slope: -2 Degrees</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="hud-center-target">
+                    <div class="target-dot"></div>
+                </div>
+
+                <div class="hud-top" style="align-items: flex-end;">
+                    <div class="hud-box" style="animation-delay: 0.4s; width: 100%;">
+                        <div class="hud-title">SHOT TRAJECTORY MODEL [5-IRON]</div>
+                        <div style="height: 6px; width: 100%; background: rgba(255,255,255,0.1); border-radius: 4px; margin-top: 10px; position:relative; overflow:hidden;">
+                            <div style="position:absolute; top:0; left:0; height:100%; width:82%; background: linear-gradient(90deg, #10b981, #0ea5e9); border-radius: 4px;"></div>
+                            <div style="position:absolute; top:-2px; left:82%; width:4px; height:10px; background:#fff; border-radius:2px; box-shadow:0 0 6px #fff;"></div>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; margin-top:8px; font-size:0.75rem; color:var(--text-muted); font-family:'Outfit', sans-serif;">
+                            <span>Tee Box</span>
+                            <span>Landing Zone (172 Yds Carry)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const chat = document.getElementById('chat');
+        const input = document.getElementById('promptInput');
+        const mapBg = document.getElementById('mapBg');
+        const hud = document.getElementById('hud');
+
+        function triggerDemo() {
+            input.value = "Par 4, 385 yards, dogleg right, 15mph wind, 12 handicap, in rough";
+            sendMsg();
+        }
+
+        function scrollToBot() {
+            setTimeout(() => { chat.scrollTop = chat.scrollHeight; }, 50);
+        }
+
+        function sendMsg() {
+            const val = input.value.trim();
+            if(!val) return;
+
+            // Remove chip if it exists
+            const chip = document.querySelector('.chip');
+            if(chip) chip.style.display = 'none';
+
+            // User msg
+            const uDiv = document.createElement('div');
+            uDiv.className = 'message msg-user';
+            uDiv.textContent = val;
+            chat.appendChild(uDiv);
+            input.value = '';
+            scrollToBot();
+
+            // Typing msg
+            const tDiv = document.createElement('div');
+            tDiv.className = 'message msg-ai';
+            tDiv.innerHTML = `<div class="typing-dots"><span></span><span></span><span></span></div><span style="font-size:0.8rem; color:#94a3b8; margin-left:8px;">Running player matrix and wind API...</span>`;
+            chat.appendChild(tDiv);
+            scrollToBot();
+
+            // Reveal right HUD
+            hud.style.opacity = '1';
+            hud.style.transition = 'opacity 1s ease';
+            mapBg.style.transform = 'scale(1)';
+
+            // Simulate API logic delay
+            setTimeout(() => {
+                chat.removeChild(tDiv);
+                
+                const aiDiv = document.createElement('div');
+                aiDiv.className = 'message msg-ai';
+                
+                aiDiv.innerHTML = `
+                    <div style="font-size:1.15rem; font-family:'Outfit', sans-serif; font-weight:700; color:var(--accent-primary); margin-bottom:16px; display:flex; align-items:center; gap:8px;">
+                        ⛳ GOCADDIE ANALYSIS
+                    </div>
+
+                    <div class="data-block">
+                        <div class="data-label">📍 SITUATION READ</div>
+                        <div class="data-value">We're on a 385-yard Par 4 dogleg right playing into a stiff 15mph headwind. You're sitting in the rough as a 12 handicap, which introduces a critical 'flyer lie' scenario where the ball might launch with less spin.</div>
+                    </div>
+
+                    <div class="report-section">
+                        <div class="report-title">🎯 CLUB RECOMMENDATION</div>
+                        <div style="margin-bottom:6px;"><span style="color:#94a3b8;">Primary Club:</span> <b style="font-size:1.1rem; color:#fff;">5-Iron</b></div>
+                        <div style="font-size:0.85rem; color:#cbd5e1; line-height:1.5;"><b>Why:</b> We need to fight the 15mph wind with a lower trajectory, and the 5-iron ensures we don't end up short, even if the rough grabs the clubhead slightly.</div>
+                    </div>
+
+                    <div class="report-section">
+                        <div class="report-title">🗺️ SHOT STRATEGY</div>
+                        <ul style="list-style:none; font-size:0.9rem; display:flex; flex-direction:column; gap:8px;">
+                            <li><span style="color:var(--text-muted); width:90px; display:inline-block;">Aim Point:</span> <b>10 yards left of the center pin</b></li>
+                            <li><span style="color:var(--text-muted); width:90px; display:inline-block;">Shape:</span> <b>Straight punch</b> (less spin cuts through wind)</li>
+                            <li><span style="color:var(--text-muted); width:90px; display:inline-block;">Landing:</span> <b>Front-left fringe</b></li>
+                            <li><span style="color:var(--text-muted); width:90px; display:inline-block;">Trajectory:</span> <b>Low / Mid</b></li>
+                        </ul>
+                    </div>
+                    
+                    <div class="report-section">
+                        <div class="report-title">💨 CONDITIONS IMPACT</div>
+                        <div style="font-size:0.9rem; color:#e2e8f0; line-height:1.6;">
+                            The 15mph headwind effectively adds 18 yards to the shot. However, the rough reduces backspin by ~30%, meaning the ball will bounds forward upon landing. Missing right brings the dogleg's penalty area into play.
+                        </div>
+                    </div>
+
+                    <div class="split-card">
+                        <div class="card-safe">
+                            <div class="pill pill-safe">🟢 SAFE PLAY</div>
+                            <div style="font-size:0.85rem; line-height:1.5;">
+                                <b>Club:</b> 7-Iron Layup<br>
+                                <b>Target:</b> Top left of fairway, 40y short.<br>
+                                <span style="color:#94a3b8; font-size:0.75rem; display:block; margin-top:6px;">Protects against the double-bogey if you chunk it from the rough.</span>
+                            </div>
+                        </div>
+                        <div class="card-aggro">
+                            <div class="pill pill-aggro">🔴 AGGRESSIVE</div>
+                            <div style="font-size:0.85rem; line-height:1.5;">
+                                <b>Club:</b> 5-Iron<br>
+                                <b>Target:</b> Heart of the Green<br>
+                                <span style="color:#94a3b8; font-size:0.75rem; display:block; margin-top:6px;">Brings birdie into play but risks missing short-right if the wind eats the shot.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="report-section">
+                        <div class="report-title">🧠 MENTAL GAME</div>
+                        <div style="font-style:italic; border-left:2px solid var(--accent-primary); padding-left:12px; font-size:0.95rem;">
+                            "Tiger plays this exact shot at Augusta. Don't fight the wind—just put a smooth, 80% tempo swing on it and let the clubface do the work."
+                        </div>
+                    </div>
+
+                    <div class="report-section" style="background:rgba(0,0,0,0.3); padding:16px; border-radius:12px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div class="report-title" style="margin:0;">📊 CONFIDENCE SCORE</div>
+                            <div style="font-family:'Outfit', sans-serif; font-size:1.4rem; color:var(--accent-primary); font-weight:700;">68%</div>
+                        </div>
+                        <div style="font-size:0.85rem; color:#cbd5e1; margin-top:8px; line-height:1.5;">
+                            <b>Difficulty:</b> Demanding (Tour Level Strategy required)<br>
+                            <b>Key Risk:</b> Decelerating through the rough and catching it fat.
+                        </div>
+                    </div>
+                `;
+
+                chat.appendChild(aiDiv);
+                scrollToBot();
+            }, 1800);
+        }
+    </script>
+</body>
+</html>
